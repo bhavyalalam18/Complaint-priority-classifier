@@ -1,0 +1,179 @@
+text,priority
+"System is completely down, no one can log in",high
+"Critical data loss detected in production database",high
+"Security breach detected, unauthorized access",high
+"App crashes immediately on launch",high
+"Payment processing is failing for all users",high
+"Server is completely unresponsive since morning",high
+"All users locked out of the system",high
+"Database corrupted, urgent recovery needed",high
+"API is down, all integrations broken",high
+"Billing system failure affecting all transactions",high
+"Website not loading for anyone",high
+"Complete service outage reported",high
+"Customer data exposed due to breach",high
+"Production server crashed",high
+"All emails bouncing back, mail server down",high
+"Critical bug causing data corruption",high
+"Firewall breach detected, immediate action needed",high
+"System freeze affecting all departments",high
+"Financial data missing after update",high
+"Entire platform unavailable for 2 hours",high
+"System down again, users cannot access anything",high
+"Major crash in checkout flow, orders failing",high
+"Data sync failure between servers",high
+"Authentication service completely broken",high
+"All reports returning blank pages",high
+"Network is completely down across all offices",high
+"Customer unable to complete any purchase",high
+"Data backup failed, risk of permanent loss",high
+"SSL certificate expired, entire site unreachable",high
+"All API endpoints returning 500 errors",high
+"Database server ran out of disk space",high
+"Critical memory leak causing server to crash",high
+"All scheduled jobs failed overnight",high
+"Production deployment broke the entire app",high
+"Users reporting complete loss of saved data",high
+"Emergency ransomware detected on servers",high
+"All file uploads failing across the platform",high
+"Entire microservices cluster is unresponsive",high
+"Payment gateway returning errors for every transaction",high
+"Primary load balancer has failed",high
+"All user sessions being forcibly terminated",high
+"Critical vulnerability found in authentication module",high
+"Mass account lockouts reported by all customers",high
+"Entire reporting system crashed",high
+"Live event streaming completely broken",high
+"All webhooks stopped delivering",high
+"Two-factor authentication broken for all users",high
+"Complete loss of connectivity to external APIs",high
+"Database replication has stopped working",high
+"System clock drift causing authentication failures for all",high
+"Checkout process failing for all customers",high
+"User authentication completely broken for everyone",high
+"Orders not processing across entire platform",high
+"All customer accounts inaccessible",high
+"Revenue impacted due to total system failure",high
+"Critical outage affecting all services",high
+"Entire network infrastructure down",high
+"All transactions blocked due to system error",high
+"Platform completely unreachable since last night",high
+"Emergency: all user data wiped after failed migration",high
+"Login button not working sometimes",medium
+"Dashboard loads slowly on some pages",medium
+"Email notifications delayed by a few hours",medium
+"Search results occasionally incorrect",medium
+"UI misalignment on the settings page",medium
+"Export feature fails intermittently",medium
+"Some users unable to upload files",medium
+"Reports not generating for certain date ranges",medium
+"Mobile app freezes occasionally",medium
+"Password reset email sometimes not received",medium
+"Filter not working correctly on list view",medium
+"Chart data not refreshing automatically",medium
+"Notification badge showing wrong count",medium
+"Some images not loading on profile page",medium
+"Date picker behaving inconsistently",medium
+"Occasional timeout errors on search",medium
+"User profile updates not saving sometimes",medium
+"CSV export missing some columns intermittently",medium
+"Two-factor auth code delayed occasionally",medium
+"Session expiring too quickly for some users",medium
+"Intermittent login issues for some accounts",medium
+"Slow performance on reports page",medium
+"Push notifications not arriving on time",medium
+"Search autocomplete sometimes not working",medium
+"File download failing for large files",medium
+"Third-party API returning errors intermittently",medium
+"Some users reporting slow dashboard load times",medium
+"Mobile push notifications inconsistent",medium
+"Certain report types timing out",medium
+"Some email attachments not delivering",medium
+"Occasional 404 errors on valid pages",medium
+"Data export takes unusually long for some users",medium
+"Some users cannot see their transaction history",medium
+"Calendar sync failing for certain accounts",medium
+"Some features not loading on older browsers",medium
+"Partial data missing in some generated invoices",medium
+"PDF generation fails for specific templates",medium
+"Some users report incorrect balance shown",medium
+"Notifications not being sent for certain events",medium
+"Charts not displaying correctly for some date ranges",medium
+"Some users unable to change their password",medium
+"Certain user roles unable to access specific reports",medium
+"Batch processing delayed for some jobs",medium
+"Some API calls returning outdated data",medium
+"Dropdown menus slow to load on settings page",medium
+"Some users getting logged out unexpectedly",medium
+"File preview not working for certain formats",medium
+"Search returning duplicate results occasionally",medium
+"Some scheduled emails not being sent",medium
+"Occasional errors when saving form data",medium
+"Some users report missing attachments in emails",medium
+"Certain dashboard widgets not updating in real time",medium
+"Intermittent failures in payment confirmation emails",medium
+"Some users experiencing slow file uploads",medium
+"Certain pages taking too long to load",medium
+"Reports occasionally showing stale data",medium
+"Some webhook events not being received",medium
+"Occasional blank screen on app launch for some users",medium
+"Button color does not match brand guidelines",low
+"Typo in footer text",low
+"Minor text overlap on mobile",low
+"Feature request add dark mode",low
+"Tooltip text could be clearer",low
+"Spacing looks off on the about page",low
+"Icon size slightly inconsistent",low
+"Suggestion improve onboarding flow",low
+"Footer link text needs updating",low
+"Minor UI polish needed on settings page",low
+"Font weight inconsistent on headings",low
+"Placeholder text in search bar could be better",low
+"Suggestion to add keyboard shortcuts",low
+"Color contrast slightly low on secondary button",low
+"Animation feels a bit slow on sidebar",low
+"Add option to export data as PDF",low
+"Improve empty state message on dashboard",low
+"Slight padding issue on mobile nav",low
+"Request to add more chart types",low
+"Help text on signup form could be clearer",low
+"Request to change button label text",low
+"Suggestion add profile picture cropping",low
+"Minor alignment issue on contact form",low
+"Tooltip missing on one icon",low
+"Feature request remember last selected filter",low
+"Request to update copyright year in footer",low
+"Suggestion to reorder menu items",low
+"Minor grammatical error in help documentation",low
+"Improve loading spinner design",low
+"Add option to customize dashboard layout",low
+"Sidebar menu items could use better icons",low
+"Request to add CSV import feature",low
+"Improve contrast on disabled buttons",low
+"Add tooltips to all form fields",low
+"Feature request bulk delete option",low
+"Minor layout issue on the billing page",low
+"Suggestion to add a welcome tour for new users",low
+"Improve error message wording on login page",low
+"Feature request notification preferences page",low
+"Request for a print friendly view",low
+"Favicon looks blurry on retina displays",low
+"Minor inconsistency in date format across pages",low
+"Suggestion add a progress bar for file uploads",low
+"Request to add two column layout option",low
+"Link color hard to distinguish from regular text",low
+"Suggest adding a search history feature",low
+"Add option to pin frequently used reports",low
+"Improve mobile menu close button visibility",low
+"Suggestion to add inline editing for table rows",low
+"Request to add time zone display in user profile",low
+"Improve readability of terms and conditions page",low
+"Feature suggestion collapsible sidebar sections",low
+"Minor color inconsistency on hover states",low
+"Suggestion to add copy to clipboard button",low
+"Request to improve tab order on forms",low
+"Add confirmation dialog before deleting items",low
+"Improve back button behavior on mobile",low
+"Suggestion to highlight active menu item",low
+"Request to add recent searches dropdown",low
+"Minor font size inconsistency in tables",low
