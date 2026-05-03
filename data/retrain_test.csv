@@ -1,0 +1,28 @@
+text,priority
+"The server is completely down for all users",high
+"Website is totally inaccessible since morning",high
+"Critical payment failure affecting everyone",high
+"Security breach detected in production",high
+"All users locked out of the system",high
+"Database corrupted urgent recovery needed",high
+"Complete service outage reported",high
+"API is down all integrations broken",high
+"Financial data missing after update",high
+"Login takes a bit longer than usual",medium
+"Some images not loading on dashboard",medium
+"Notification badge showing wrong number",medium
+"Search filter not working correctly",medium
+"Email notifications delayed by few hours",medium
+"Mobile app freezes occasionally",medium
+"Password reset email sometimes not received",medium
+"Reports not generating for certain dates",medium
+"Export feature fails intermittently",medium
+"Small typo on the homepage",low
+"Button color slightly off",low
+"Suggestion to improve help text",low
+"Minor spacing issue on contact form",low
+"Tooltip missing on settings icon",low
+"Footer link text needs updating",low
+"Suggestion to add dark mode",low
+"Icon size slightly inconsistent",low
+"Minor alignment issue on mobile",low
