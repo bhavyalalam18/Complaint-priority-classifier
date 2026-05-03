@@ -12,6 +12,10 @@ from email.mime.text import MIMEText
 from email.mime.multipart import MIMEMultipart
 from collections import Counter
 from classifier import predict, train
+# ── Auto-train model if not exists ──
+if not os.path.exists("models/model.joblib"):
+    with st.spinner("🔄 Training model for first time..."):
+        train("data/complaints.csv")
 
 # ── Initialize ALL session state FIRST ──
 if "dark_mode" not in st.session_state:
