@@ -84,7 +84,7 @@ class KeywordScorer(BaseEstimator, TransformerMixin):
 # ---------------------------------------------------------------------------
 # Pipeline
 # ---------------------------------------------------------------------------
-def build_pipeline() -> Pipeline:
+def build_pipeline(min_class_count: int = 5) -> Pipeline:
     features = FeatureUnion([
         ("tfidf", TfidfVectorizer(
             preprocessor=preprocess,
@@ -96,8 +96,14 @@ def build_pipeline() -> Pipeline:
         )),
         ("keywords", KeywordScorer())
     ])
+
+    # Clamp internal calibration CV to [2, min_class_count] so it never
+    # exceeds the smallest class size even inside each outer fold.
+    calibration_cv = max(2, min(5, min_class_count))
+
     svm = CalibratedClassifierCV(
-        LinearSVC(C=0.5, class_weight="balanced", max_iter=2000)
+        LinearSVC(C=0.5, class_weight="balanced", max_iter=2000),
+        cv=calibration_cv
     )
     return Pipeline([("features", features), ("clf", svm)])
 
@@ -124,12 +130,13 @@ def train(csv_path: str, model_path: str = "models/model.joblib"):
     X, y = df["text"], df["priority"]
     print(f"\n📦 Dataset: {len(df)} samples | Classes: {dict(y.value_counts().sort_index())}")
 
-    pipeline = build_pipeline()
-
-    # ✅ FIX: Dynamically set n_splits based on smallest class size
-    # Prevents "n_splits cannot be greater than number of members in each class" error
     min_class_count = int(y.value_counts().min())
-    n_splits = min(5, min_class_count)
+
+    # Build pipeline with safe calibration CV
+    pipeline = build_pipeline(min_class_count=min_class_count)
+
+    # Outer CV also clamped to smallest class size, minimum 2
+    n_splits = max(2, min(5, min_class_count))
     print(f"   Using n_splits={n_splits} (smallest class has {min_class_count} samples)")
 
     cv = StratifiedKFold(n_splits=n_splits, shuffle=True, random_state=42)
@@ -154,6 +161,7 @@ def train(csv_path: str, model_path: str = "models/model.joblib"):
     for lbl, row in zip(["high", "medium", "low"], cm):
         print(f"  {lbl:<8}  {row[0]:>6}  {row[1]:>6}  {row[2]:>6}")
 
+    # Refit on full data before saving
     pipeline.fit(X, y)
     os.makedirs("models", exist_ok=True)
     joblib.dump(pipeline, model_path)
@@ -186,10 +194,10 @@ def predict(text: str, model_path: str = "models/model.joblib", translate: bool 
         final_label, final_confidence, source = ml_label, ml_confidence, "model_low_confidence"
 
     return {
-        "text"          : text,
+        "text"           : text,
         "translated_text": translated_text if translate else None,
-        "priority"      : final_label,
-        "confidence"    : round(final_confidence, 3),
-        "source"        : source,
-        "scores"        : dict(zip(classes, map(float, proba)))
+        "priority"       : final_label,
+        "confidence"     : round(final_confidence, 3),
+        "source"         : source,
+        "scores"         : dict(zip(classes, map(float, proba)))
     }
