@@ -1,10 +1,92 @@
 text,priority
-The server is completely down for all users,high
-Website is totally inaccessible since morning,high
-Critical payment failure affecting everyone,high
-Login takes a bit longer than usual,medium
-Some images not loading on dashboard,medium
-Notification badge showing wrong number,medium
-Small typo on the homepage,low
-Button color slightly off,low
-Suggestion to improve help text,low
+App crashes when I try to complete payment,high
+Payment deducted but order not placed,high
+Unable to login after update,high
+App freezes during checkout,high
+Lost all my saved data after update,high
+OTP not received for transaction,high
+Account locked without reason,high
+App not opening at all,high
+Payment page keeps loading forever,high
+Order placed but not showing in history,high
+Login takes too long,medium
+App is very slow sometimes,medium
+Search feature not working properly,medium
+Notifications are delayed,medium
+Profile page loads slowly,medium
+App logs out frequently,medium
+Images not loading properly,medium
+Settings page has bugs,medium
+App lags when scrolling,medium
+Delay in receiving messages,medium
+Add dark mode feature,low
+Improve UI design,low
+Add more payment options,low
+Need better customer support chat,low
+Add language options,low
+Improve app colors and theme,low
+Add wishlist feature,low
+Make navigation easier,low
+Add fingerprint login option,low
+Provide more customization options,low
+text,priority
+App crashes immediately after login,high
+Payment failed but money debited,high
+Unable to reset password,high
+App stuck on loading screen,high
+Transaction not going through,high
+App deletes my data automatically,high
+Server error during checkout,high
+App shuts down randomly,high
+Unable to access account,high
+Payment confirmation not received,high
+App crashes when uploading files,high
+Lost account access after update,high
+App not responding during payment,high
+Multiple charges for one order,high
+Critical error message keeps appearing,high
+Unable to verify OTP,high
+App hangs during important tasks,high
+Payment gateway not working,high
+Account suspended without notice,high
+App closes when clicking buttons,high
+Slow response while switching tabs,medium
+Search results are inaccurate,medium
+Notifications not working properly,medium
+Delay in app updates,medium
+App consumes too much battery,medium
+Login sometimes fails,medium
+Lag while using main features,medium
+App takes time to refresh data,medium
+Chat feature is buggy,medium
+Issues with syncing data,medium
+App freezes occasionally,medium
+Profile updates not saving,medium
+Delay in loading dashboard,medium
+App performance drops over time,medium
+Minor bugs in settings,medium
+Difficulty navigating menus,medium
+Error messages unclear,medium
+App reloads unnecessarily,medium
+Problems with file uploads,medium
+Session expires too quickly,medium
+Add offline mode,low
+Improve font readability,low
+Add more themes,low
+Include tutorial for new users,low
+Enhance user interface layout,low
+Add sound notifications,low
+Provide better help section,low
+Improve button placement,low
+Add animation effects,low
+Allow profile customization,low
+Add recent activity section,low
+Improve onboarding experience,low
+Add feedback option in app,low
+Better organization of features,low
+Add tooltips for guidance,low
+Improve icon design,low
+Add multi-language support,low
+Make UI more modern,low
+Add shortcuts for quick actions,low
+Improve color contrast,low
