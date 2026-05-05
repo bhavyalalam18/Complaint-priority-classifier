@@ -13,10 +13,15 @@ from email.mime.multipart import MIMEMultipart
 from collections import Counter
 from classifier import predict, train
 # ── Auto-train model if not exists ──
+# ── Auto-train model if not exists ──
 if not os.path.exists("models/model.joblib"):
+    os.makedirs("models", exist_ok=True)
     with st.spinner("🔄 Training model for first time..."):
-        train("data/complaints.csv")
-
+        try:
+            train("data/complaints.csv")
+        except Exception as e:
+            st.error(f"❌ Training failed: {e}")
+            st.stop()
 # ── Initialize ALL session state FIRST ──
 if "dark_mode" not in st.session_state:
     st.session_state.dark_mode = False
