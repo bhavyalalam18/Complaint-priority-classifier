@@ -97,8 +97,6 @@ def build_pipeline(min_class_count: int = 5) -> Pipeline:
         ("keywords", KeywordScorer())
     ])
 
-    # Clamp internal calibration CV to [2, min_class_count] so it never
-    # exceeds the smallest class size even inside each outer fold.
     calibration_cv = max(2, min(5, min_class_count))
 
     svm = CalibratedClassifierCV(
@@ -123,21 +121,30 @@ def keyword_priority(text: str) -> tuple[str, float]:
 # Training
 # ---------------------------------------------------------------------------
 def train(csv_path: str, model_path: str = "models/model.joblib"):
-    df = pd.read_csv(csv_path)
+    # ✅ FIX 1: explicit header=0 so pandas never treats header as data
+    df = pd.read_csv(csv_path, header=0)
     df.dropna(subset=["text", "priority"], inplace=True)
     df["priority"] = df["priority"].str.lower().str.strip()
+
+    # ✅ FIX 2: drop any row where priority is not a valid label
+    df = df[df["priority"].isin(["high", "medium", "low"])]
 
     X, y = df["text"], df["priority"]
     print(f"\n📦 Dataset: {len(df)} samples | Classes: {dict(y.value_counts().sort_index())}")
 
     min_class_count = int(y.value_counts().min())
 
-    # Build pipeline with safe calibration CV
-    pipeline = build_pipeline(min_class_count=min_class_count)
-
-    # Outer CV also clamped to smallest class size, minimum 2
+    # ✅ FIX 3: calibration_cv must be safe within each outer fold
+    # Each fold's train split is (n_splits-1)/n_splits of data
+    # so effective min samples per class in a fold is min_class_count * (n_splits-1)/n_splits
     n_splits = max(2, min(5, min_class_count))
+    effective_min = int(min_class_count * (n_splits - 1) / n_splits)
+    calibration_cv = max(2, min(5, effective_min))
+
+    pipeline = build_pipeline(min_class_count=calibration_cv)
+
     print(f"   Using n_splits={n_splits} (smallest class has {min_class_count} samples)")
+    print(f"   Calibration cv={calibration_cv} (effective min per fold={effective_min})")
 
     cv = StratifiedKFold(n_splits=n_splits, shuffle=True, random_state=42)
     cv_scores = cross_val_score(pipeline, X, y, cv=cv, scoring="accuracy")
@@ -175,7 +182,6 @@ def predict(text: str, model_path: str = "models/model.joblib", translate: bool 
     if not os.path.exists(model_path):
         raise FileNotFoundError("Model not found. Run train.py first.")
 
-    # Translate if enabled
     translated_text = translate_to_english(text) if translate else text
 
     pipeline = joblib.load(model_path)
