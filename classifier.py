@@ -125,7 +125,14 @@ def train(csv_path: str, model_path: str = "models/model.joblib"):
     print(f"\n📦 Dataset: {len(df)} samples | Classes: {dict(y.value_counts().sort_index())}")
 
     pipeline = build_pipeline()
-    cv = StratifiedKFold(n_splits=5, shuffle=True, random_state=42)
+
+    # ✅ FIX: Dynamically set n_splits based on smallest class size
+    # Prevents "n_splits cannot be greater than number of members in each class" error
+    min_class_count = int(y.value_counts().min())
+    n_splits = min(5, min_class_count)
+    print(f"   Using n_splits={n_splits} (smallest class has {min_class_count} samples)")
+
+    cv = StratifiedKFold(n_splits=n_splits, shuffle=True, random_state=42)
     cv_scores = cross_val_score(pipeline, X, y, cv=cv, scoring="accuracy")
     print(f"\n📈 Cross-validation accuracy : {cv_scores.mean():.2%} (±{cv_scores.std():.2%})")
     print(f"   Per-fold scores           : {[f'{s:.2%}' for s in cv_scores]}")
