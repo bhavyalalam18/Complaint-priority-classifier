@@ -12,7 +12,9 @@ from email.mime.text import MIMEText
 from email.mime.multipart import MIMEMultipart
 from collections import Counter
 from classifier import predict, train
-# ── Auto-train model if not exists ──
+from dotenv import load_dotenv
+load_dotenv()
+
 # ── Auto-train model if not exists ──
 if not os.path.exists("models/model.joblib"):
     os.makedirs("models", exist_ok=True)
@@ -35,12 +37,16 @@ if "feedback_saved" not in st.session_state:
 # ── Helper Functions ──
 def send_email_alert(to_email: str, complaint_text: str, confidence: float):
     try:
-        sender_email    = "bhavyalalam.4@gmail.com"
-        sender_password = "pzow pucd rzzi btry"
-        msg             = MIMEMultipart("alternative")
-        msg["Subject"]  = "🔴 HIGH PRIORITY Complaint Detected!"
-        msg["From"]     = sender_email
-        msg["To"]       = to_email
+        sender_email    = os.getenv("EMAIL_SENDER")
+        sender_password = os.getenv("EMAIL_PASSWORD")
+
+        if not sender_email or not sender_password:
+            return False
+
+        msg            = MIMEMultipart("alternative")
+        msg["Subject"] = "🔴 HIGH PRIORITY Complaint Detected!"
+        msg["From"]    = sender_email
+        msg["To"]      = to_email
         html = f"""
         <html><body>
         <div style="font-family:Arial;max-width:600px;margin:auto;
