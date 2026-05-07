@@ -1,7 +1,12 @@
 scikit-learn
 pandas
 numpy
-flask
 joblib
 streamlit
 deep-translator
+fastapi
+uvicorn
+python-jose[cryptography]
+passlib[bcrypt]
+python-dotenv
+pydantic
