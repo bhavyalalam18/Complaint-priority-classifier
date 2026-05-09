@@ -11,6 +11,7 @@ from api.middleware.errors  import (validation_exception_handler,
                                      general_exception_handler,
                                      http_exception_handler)
 from api.middleware.logging import logger
+from api.database import create_tables
 
 load_dotenv()
 
@@ -59,6 +60,8 @@ app.include_router(classify_router)
 # ── Events ──
 @app.on_event("startup")
 async def startup_event():
+    create_tables()
+    logger.info("✅ Database tables created")
     logger.info("🚀 Complaint Priority Classifier API starting up...")
     logger.info(f"📚 Docs available at: http://localhost:8000/docs")
 

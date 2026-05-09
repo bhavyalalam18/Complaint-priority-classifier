@@ -3,6 +3,7 @@ from typing import Optional
 from jose import JWTError, jwt
 from fastapi import Depends, HTTPException, status
 from fastapi.security import HTTPBearer, HTTPAuthorizationCredentials
+from passlib.context import CryptContext
 import os
 import secrets
 from dotenv import load_dotenv
@@ -13,24 +14,30 @@ SECRET_KEY  = os.getenv("SECRET_KEY", "fallback-secret-key")
 ALGORITHM   = os.getenv("ALGORITHM", "HS256")
 EXPIRE_MINS = int(os.getenv("ACCESS_TOKEN_EXPIRE_MINUTES", 30))
 
-# ── Users DB (in-memory for demo) ──
+# ── Password Hashing ──
+pwd_context = CryptContext(schemes=["bcrypt"], deprecated="auto")
+
+def hash_password(password: str) -> str:
+    return pwd_context.hash(password[:72])  
+
+def verify_password(plain: str, hashed: str) -> bool:
+    return pwd_context.verify(plain[:72], hashed)  
+
+# ── Users DB with hashed passwords ──
 USERS_DB = {
     os.getenv("ADMIN_USERNAME", "admin"): {
         "username": os.getenv("ADMIN_USERNAME", "admin"),
-        "password": os.getenv("ADMIN_PASSWORD", "admin123"),
+        "password": hash_password(os.getenv("ADMIN_PASSWORD", "admin123")),
         "role"    : "admin"
     },
     os.getenv("VIEWER_USERNAME", "viewer"): {
         "username": os.getenv("VIEWER_USERNAME", "viewer"),
-        "password": os.getenv("VIEWER_PASSWORD", "viewer123"),
+        "password": hash_password(os.getenv("VIEWER_PASSWORD", "viewer123")),
         "role"    : "viewer"
     }
 }
 
 http_bearer = HTTPBearer()
-
-def verify_password(plain: str, stored: str) -> bool:
-    return plain == stored
 
 def authenticate_user(username: str, password: str):
     user = USERS_DB.get(username)
@@ -45,8 +52,7 @@ def create_token(data: dict, expires_delta: Optional[timedelta] = None) -> str:
         "exp": expire,
         "jti": secrets.token_hex(8)
     })
-    token = jwt.encode(to_encode, SECRET_KEY, algorithm=ALGORITHM)
-    return token if isinstance(token, str) else token.decode("utf-8")  # ← fix
+    return jwt.encode(to_encode, SECRET_KEY, algorithm=ALGORITHM)
 
 async def get_current_user(
     credentials: HTTPAuthorizationCredentials = Depends(HTTPBearer())
