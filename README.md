@@ -3,6 +3,8 @@
 An AI-powered system that automatically classifies customer complaints into **High**, **Medium**, or **Low** priority using Machine Learning (TF-IDF + Naive Bayes).
 
 ---
+## 🌐 Live Demo
+👉 [Click here to try the app](https://complaint-priority-classifier-f88ojcfwhewtmuzlhn5uwe.streamlit.app)
 
 ## ✨ Features
 
