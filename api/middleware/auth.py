@@ -3,7 +3,8 @@ from typing import Optional
 from jose import JWTError, jwt
 from fastapi import Depends, HTTPException, status
 from fastapi.security import HTTPBearer, HTTPAuthorizationCredentials
-from passlib.context import CryptContext
+
+import bcrypt
 import os
 import secrets
 from dotenv import load_dotenv
@@ -15,13 +16,12 @@ ALGORITHM   = os.getenv("ALGORITHM", "HS256")
 EXPIRE_MINS = int(os.getenv("ACCESS_TOKEN_EXPIRE_MINUTES", 30))
 
 # ── Password Hashing ──
-pwd_context = CryptContext(schemes=["bcrypt"], deprecated="auto")
 
 def hash_password(password: str) -> str:
-    return pwd_context.hash(password[:72])  
+    return bcrypt.hashpw(password[:72].encode('utf-8'), bcrypt.gensalt()).decode('utf-8')
 
 def verify_password(plain: str, hashed: str) -> bool:
-    return pwd_context.verify(plain[:72], hashed)  
+    return bcrypt.checkpw(plain[:72].encode('utf-8'), hashed.encode('utf-8')) 
 
 # ── Users DB with hashed passwords ──
 USERS_DB = {
