@@ -1,19 +1,28 @@
 import streamlit as st
-import joblib
 import os
-import pandas as pd
-import datetime
+import io
+import sys
+import json
 import csv
-import random
 import re
+import random
 import smtplib
-import io as _io
+import datetime
+import pandas as pd
 from email.mime.text import MIMEText
 from email.mime.multipart import MIMEMultipart
 from collections import Counter
-from classifier import predict, train
 from dotenv import load_dotenv
+from classifier import predict, train
+
 load_dotenv()
+
+# ── Page Config (must be the first Streamlit command) ──
+st.set_page_config(
+    page_title="Complaint Priority Classifier",
+    page_icon="🎯",
+    layout="wide"
+)
 
 # ── Auto-train model if not exists ──
 if not os.path.exists("models/model.joblib"):
@@ -24,6 +33,17 @@ if not os.path.exists("models/model.joblib"):
         except Exception as e:
             st.error(f"❌ Training failed: {e}")
             st.stop()
+
+# ── Load live model metrics (written by train()) ──
+def load_metrics() -> dict:
+    try:
+        with open("models/metrics.json") as f:
+            return json.load(f)
+    except Exception:
+        return {}
+
+M = load_metrics()
+
 # ── Initialize ALL session state FIRST ──
 if "dark_mode" not in st.session_state:
     st.session_state.dark_mode = False
@@ -35,14 +55,22 @@ if "feedback_saved" not in st.session_state:
     st.session_state.feedback_saved = False
 
 # ── Helper Functions ──
-def send_email_alert(to_email: str, complaint_text: str, confidence: float):
+def get_secret(name: str) -> str:
+    """Read from environment/.env first, then Streamlit secrets."""
+    value = os.getenv(name)
+    if value:
+        return value
     try:
-        sender_email    = os.getenv("EMAIL_SENDER")
-        sender_password = os.getenv("EMAIL_PASSWORD")
+        return st.secrets[name]
+    except Exception:
+        return ""
 
-        if not sender_email or not sender_password:
-            return False
-
+def send_email_alert(to_email: str, complaint_text: str, confidence: float):
+    sender_email    = get_secret("EMAIL_SENDER")
+    sender_password = get_secret("EMAIL_PASSWORD")
+    if not sender_email or not sender_password:
+        return False
+    try:
         msg            = MIMEMultipart("alternative")
         msg["Subject"] = "🔴 HIGH PRIORITY Complaint Detected!"
         msg["From"]    = sender_email
@@ -85,16 +113,17 @@ def get_keywords(text: str) -> list:
     words    = re.findall(r'\b[a-zA-Z]{4,}\b', text.lower())
     keywords = [w for w in words if w not in stop_words]
     return [word for word, _ in Counter(keywords).most_common(5)]
+
 def get_severity_score(text: str, priority: str, confidence: float) -> int:
     """Calculate severity score 1-10 based on priority + confidence + keywords."""
     base = {"high": 7, "medium": 4, "low": 1}[priority]
-    bonus = 0
     text_lower = text.lower()
     critical_words = ["crash", "breach", "down", "all users", "production",
                       "critical", "emergency", "data loss", "corrupted"]
-    bonus += sum(1 for w in critical_words if w in text_lower)
+    bonus = sum(1 for w in critical_words if w in text_lower)
     score = base + min(bonus, 2) + round((confidence - 0.6) * 2)
     return max(1, min(10, score))
+
 def get_response_template(priority: str, severity: int) -> str:
     """Generate a response template based on priority and severity."""
     templates = {
@@ -144,8 +173,10 @@ Best regards,
 Support Team"""
     }
     return templates[priority]
+
 def save_feedback(text: str, predicted: str, feedback: str):
-    filepath   = "data/feedback.csv"
+    os.makedirs("data", exist_ok=True)
+    filepath    = "data/feedback.csv"
     file_exists = os.path.exists(filepath)
     with open(filepath, "a", newline="", encoding="utf-8") as f:
         writer = csv.DictWriter(f, fieldnames=["text", "predicted", "feedback", "time"])
@@ -158,12 +189,15 @@ def save_feedback(text: str, predicted: str, feedback: str):
             "time"     : datetime.datetime.now().strftime("%Y-%m-%d %H:%M:%S")
         })
 
-# ── Page Config ──
-st.set_page_config(
-    page_title="Complaint Priority Classifier",
-    page_icon="🎯",
-    layout="wide"
-)
+def run_training_capture() -> str:
+    """Run train() and return its printed output."""
+    old_stdout = sys.stdout
+    sys.stdout = buffer = io.StringIO()
+    try:
+        train("data/complaints.csv")
+    finally:
+        sys.stdout = old_stdout
+    return buffer.getvalue()
 
 # ── Dynamic CSS ──
 if st.session_state.dark_mode:
@@ -214,7 +248,7 @@ st.markdown(f"""
 
 # ── Header ──
 st.markdown("# 🎯 Complaint Priority Classifier")
-st.markdown("**AI-powered NLP system** that classifies complaints into High, Medium, or Low priority using TF-IDF + Naive Bayes")
+st.markdown("**AI-powered NLP system** that classifies complaints into High, Medium, or Low priority using TF-IDF + Calibrated LinearSVC")
 st.markdown("---")
 
 # ── Sidebar ──
@@ -222,27 +256,27 @@ with st.sidebar:
     st.markdown("## ⚙️ About")
     dark_mode = st.toggle("🌙 Dark Mode", value=st.session_state.dark_mode, key="dark_mode_toggle")
     st.session_state.dark_mode = dark_mode
-    st.markdown("""
-    **Model:** Multinomial Naive Bayes  
-    **Features:** TF-IDF (1-2 ngrams)  
-    **Accuracy:** 91.67%  
+    st.markdown(f"""
+    **Model:** {M.get('model', 'Calibrated LinearSVC')}  
+    **Features:** TF-IDF (1-2 ngrams) + keyword scores  
+    **CV Accuracy:** {M.get('cv_accuracy', 0):.1%}  
     **Classes:** High | Medium | Low
     """)
     st.markdown("---")
     st.markdown("## 📧 Email Alerts")
-    alert_email    = st.text_input("Alert email address:", placeholder="you@gmail.com", key="alert_email")
-    alert_enabled  = st.toggle("🔔 Enable High Priority Alerts", key="email_alert_toggle")
+    alert_email   = st.text_input("Alert email address:", placeholder="you@gmail.com", key="alert_email")
+    alert_enabled = st.toggle("🔔 Enable High Priority Alerts", key="email_alert_toggle")
     if alert_enabled and not alert_email:
         st.warning("⚠️ Enter an email address!")
     st.markdown("---")
     st.markdown("## 📊 Model Performance")
     col1, col2 = st.columns(2)
     with col1:
-        st.metric("Accuracy", "91.67%")
-        st.metric("Precision", "93%")
+        st.metric("Hold-out Acc.", f"{M.get('holdout_accuracy', 0):.1%}")
+        st.metric("Precision", f"{M.get('precision', 0):.0%}")
     with col2:
-        st.metric("Recall", "92%")
-        st.metric("F1 Score", "92%")
+        st.metric("Recall", f"{M.get('recall', 0):.0%}")
+        st.metric("F1 Score", f"{M.get('f1', 0):.0%}")
 
 # ── Main Tabs ──
 tab1, tab2, tab3, tab4, tab5, tab6, tab7 = st.tabs([
@@ -254,7 +288,7 @@ tab1, tab2, tab3, tab4, tab5, tab6, tab7 = st.tabs([
 with tab1:
     st.markdown("### Enter a complaint to classify")
 
-    high_examples   = [
+    high_examples = [
         "The entire system is down and no one can log in!",
         "Critical security breach detected in production database!",
         "Payment gateway is completely broken for all customers",
@@ -268,7 +302,7 @@ with tab1:
         "Mobile app freezes sometimes on Android devices",
         "Password reset email not received by some users",
     ]
-    low_examples    = [
+    low_examples = [
         "There is a small typo in the footer text",
         "Button color doesn't match our brand guidelines",
         "Suggestion to add dark mode to the app",
@@ -281,7 +315,7 @@ with tab1:
         "🟢 Low Example"   : random.choice(low_examples),
     }
 
-    selected = st.selectbox("Or pick an example:", ["-- Type your own --"] + list(examples.keys()))
+    selected     = st.selectbox("Or pick an example:", ["-- Type your own --"] + list(examples.keys()))
     default_text = examples[selected] if selected != "-- Type your own --" else ""
 
     complaint_text = st.text_area(
@@ -312,8 +346,8 @@ with tab1:
                 <p><em>"{complaint_text[:100]}..."</em></p>
             </div>
             """, unsafe_allow_html=True)
-            # Severity score
-            severity = get_severity_score(complaint_text, priority, confidence)
+
+            severity       = get_severity_score(complaint_text, priority, confidence)
             severity_color = "#ff4b4b" if severity >= 7 else "#ffa500" if severity >= 4 else "#00c852"
             st.markdown(f"""
             <div style="display:flex;align-items:center;gap:15px;
@@ -333,7 +367,7 @@ with tab1:
                 if sent:
                     st.success(f"📧 Alert email sent to {alert_email}!")
                 else:
-                    st.error("❌ Email failed. Check Gmail App Password setup.")
+                    st.error("❌ Email failed. Check EMAIL_SENDER / EMAIL_PASSWORD settings.")
 
             st.markdown("#### 📊 Confidence Breakdown")
             col1, col2, col3 = st.columns(3)
@@ -347,18 +381,17 @@ with tab1:
                 st.metric("🟢 Low", f"{scores.get('low', 0):.1%}")
                 st.progress(scores.get('low', 0))
 
-            severity = get_severity_score(complaint_text, priority, confidence)
-            # Response template
             with st.expander("📨 Generate Response Template"):
                 template = get_response_template(priority, severity)
-                st.text_area("Copy this response:", value=template, 
-                            height=200, key="response_template")
+                st.text_area("Copy this response:", value=template,
+                             height=200, key="response_template")
                 st.download_button(
                     "⬇️ Download Template",
                     data=template,
                     file_name=f"response_{priority}_priority.txt",
                     mime="text/plain"
                 )
+
             st.session_state.history.append({
                 "Time"      : datetime.datetime.now().strftime("%H:%M:%S"),
                 "Complaint" : complaint_text[:60] + "..." if len(complaint_text) > 60 else complaint_text,
@@ -366,7 +399,7 @@ with tab1:
                 "Confidence": f"{confidence:.0%}",
                 "Severity"  : f"{severity}/10"
             })
-            st.session_state.last_result  = {"text": complaint_text, "priority": priority}
+            st.session_state.last_result    = {"text": complaint_text, "priority": priority}
             st.session_state.feedback_saved = False
 
         else:
@@ -403,7 +436,7 @@ with tab2:
 
     if input_method == "✍️ Type manually":
         batch_text = st.text_area("Complaints (one per line):", height=200,
-                                   placeholder="System is down\nMinor typo in footer\nLogin sometimes fails")
+                                  placeholder="System is down\nMinor typo in footer\nLogin sometimes fails")
         if st.button("🚀 Classify All", type="primary", use_container_width=True):
             if batch_text.strip():
                 complaints = [c.strip() for c in batch_text.strip().split("\n") if c.strip()]
@@ -412,10 +445,10 @@ with tab2:
                     for c in complaints:
                         r = predict(c)
                         results.append({
-                            "Complaint": c[:60] + "..." if len(c) > 60 else c,
-                            "Priority" : r["priority"].upper(),
+                            "Complaint" : c[:60] + "..." if len(c) > 60 else c,
+                            "Priority"  : r["priority"].upper(),
                             "Confidence": f"{r['confidence']:.0%}",
-                            "Emoji"    : {"high": "🔴", "medium": "🟡", "low": "🟢"}[r["priority"]]
+                            "Emoji"     : {"high": "🔴", "medium": "🟡", "low": "🟢"}[r["priority"]]
                         })
                 df = pd.DataFrame(results)
                 st.dataframe(df, use_container_width=True)
@@ -429,7 +462,7 @@ with tab2:
     else:
         uploaded_file = st.file_uploader("Choose a CSV file", type=["csv"])
         if uploaded_file is not None:
-            df_upload = pd.read_csv(uploaded_file)
+            df_upload    = pd.read_csv(uploaded_file)
             st.dataframe(df_upload.head(), use_container_width=True)
             selected_col = st.selectbox("Select the complaint text column:", df_upload.columns.tolist())
             if st.button("🚀 Classify All Rows", type="primary", use_container_width=True):
@@ -439,10 +472,10 @@ with tab2:
                     for c in complaints:
                         r = predict(str(c))
                         results.append({
-                            "Complaint": str(c)[:60] + "..." if len(str(c)) > 60 else str(c),
-                            "Priority" : r["priority"].upper(),
+                            "Complaint" : str(c)[:60] + "..." if len(str(c)) > 60 else str(c),
+                            "Priority"  : r["priority"].upper(),
                             "Confidence": f"{r['confidence']:.0%}",
-                            "Emoji"    : {"high": "🔴", "medium": "🟡", "low": "🟢"}[r["priority"]]
+                            "Emoji"     : {"high": "🔴", "medium": "🟡", "low": "🟢"}[r["priority"]]
                         })
                 df_results = pd.DataFrame(results)
                 st.dataframe(df_results, use_container_width=True)
@@ -455,7 +488,6 @@ with tab2:
                 st.download_button("⬇️ Download Results as CSV", data=csv_download,
                                    file_name="classified_complaints.csv", mime="text/csv",
                                    use_container_width=True)
-
 
 # ── Tab 3: History ──
 with tab3:
@@ -474,26 +506,22 @@ with tab3:
         col4.metric("🟢 Low", low_c)
         st.markdown("---")
 
-        # Search & Filter
         st.markdown("#### 🔍 Search & Filter")
         col1, col2 = st.columns(2)
         with col1:
-            search_query = st.text_input("🔍 Search complaints:", 
-                                          placeholder="Type to search...",
-                                          key="history_search")
+            search_query = st.text_input("🔍 Search complaints:",
+                                         placeholder="Type to search...",
+                                         key="history_search")
         with col2:
             filter_priority = st.selectbox("Filter by priority:",
-                                            ["All", "HIGH", "MEDIUM", "LOW"],
-                                            key="history_filter")
+                                           ["All", "HIGH", "MEDIUM", "LOW"],
+                                           key="history_filter")
 
         df_history = pd.DataFrame(st.session_state.history)
-
-        # Apply search
         if search_query:
             df_history = df_history[
                 df_history["Complaint"].str.contains(search_query, case=False, na=False)
             ]
-        # Apply filter
         if filter_priority != "All":
             df_history = df_history[df_history["Priority"] == filter_priority]
 
@@ -542,7 +570,7 @@ with tab4:
             st.bar_chart(df_hist["Priority"].value_counts())
         with col2:
             st.markdown("#### Classification Timeline")
-            df_hist["Index"] = range(1, len(df_hist) + 1)
+            df_hist["Index"]          = range(1, len(df_hist) + 1)
             df_hist["Priority Score"] = df_hist["Priority"].map({"HIGH": 3, "MEDIUM": 2, "LOW": 1})
             st.line_chart(df_hist.set_index("Index")["Priority Score"])
 
@@ -564,7 +592,8 @@ with tab4:
             padding:15px;border-radius:8px;text-align:center;">
             <h3 style="color:#00c852">🟢 {(low_c/total*100):.1f}%</h3>
             <p>Low Priority</p></div>""", unsafe_allow_html=True)
-            st.markdown("---")
+
+        st.markdown("---")
         st.markdown("#### 📄 Export Report")
         if st.button("📄 Generate Report", type="secondary", use_container_width=True):
             report = f"""COMPLAINT PRIORITY CLASSIFIER — ANALYTICS REPORT
@@ -580,10 +609,12 @@ Low Priority                : {low_c} ({(low_c/total*100):.1f}%)
 
 MODEL PERFORMANCE
 -----------------
-Accuracy  : 91.67%
-Precision : 93%
-Recall    : 92%
-F1 Score  : 92%
+Model        : {M.get('model', 'N/A')}
+CV Accuracy  : {M.get('cv_accuracy', 0):.2%}
+Hold-out Acc : {M.get('holdout_accuracy', 0):.2%}
+Precision    : {M.get('precision', 0):.0%}
+Recall       : {M.get('recall', 0):.0%}
+F1 Score     : {M.get('f1', 0):.0%}
 
 RECENT CLASSIFICATIONS
 ----------------------
@@ -606,35 +637,35 @@ with tab5:
     with col1:
         st.markdown("""
         #### Pipeline
-                    Raw Text
-        ↓
-    TF-IDF Vectorizer
-    (1-2 ngrams, 5000 features)
-        ↓
-    Multinomial Naive Bayes
-    (alpha=0.1)
-        ↓
-    Priority + Confidence
-        ↓
-    Keyword Hybrid Fallback
-    (if confidence < 60%)
-        ↓
-    🔴 High / 🟡 Medium / 🟢 Low
-                    """)
+        1. Raw text, then lowercase and clean
+        2. TF-IDF (1-2 ngrams, up to 8000 features)
+        3. Keyword scorer (high / medium / low signals)
+        4. Calibrated LinearSVC (gives probabilities)
+        5. If confidence is below 60%, keyword fallback
+        6. 🔴 High / 🟡 Medium / 🟢 Low
+        """)
     with col2:
-        st.markdown("""
-        #### Performance Metrics
-        | Class | Precision | Recall | F1 |
-        |-------|-----------|--------|----|
-        | 🔴 High | 100% | 75% | 86% |
-        | 🟡 Medium | 80% | 100% | 89% |
-        | 🟢 Low | 100% | 100% | 100% |
-        | **Overall** | **93%** | **92%** | **92%** |
+        st.markdown("#### Performance Metrics")
+        pc = M.get("per_class", {})
+        if pc:
+            rows  = {"🔴 High": "high", "🟡 Medium": "medium", "🟢 Low": "low"}
+            table = "| Class | Precision | Recall | F1 |\n|---|---|---|---|\n"
+            for label, key in rows.items():
+                p      = pc[key]
+                table += f"| {label} | {p['precision']:.0%} | {p['recall']:.0%} | {p['f1']:.0%} |\n"
+            table += (f"| **Overall** | **{M.get('precision', 0):.0%}** | "
+                      f"**{M.get('recall', 0):.0%}** | **{M.get('f1', 0):.0%}** |\n")
+            st.markdown(table)
+        else:
+            st.info("Metrics not available yet. Retrain the model once.")
 
+        cc = M.get("class_counts", {})
+        st.markdown(f"""
         #### Dataset
-        - 178 labeled complaints
-        - 60 High / 58 Medium / 60 Low
-        - 80% train / 20% test split
+        - {M.get('samples', 0)} labeled complaints
+        - {cc.get('high', 0)} High / {cc.get('medium', 0)} Medium / {cc.get('low', 0)} Low
+        - 80% train / 20% test split, plus 5-fold cross-validation
+        - Last trained: {M.get('trained_at', 'N/A')}
         """)
 
 # ── Tab 6: Retrain ──
@@ -643,22 +674,22 @@ with tab6:
     st.markdown("Upload a CSV with `text` and `priority` columns to retrain the model.")
 
     col1, col2, col3 = st.columns(3)
-    col1.metric("Current Accuracy", "91.67%")
-    col2.metric("Training Samples", "178")
-    col3.metric("Last Trained", "Today")
+    col1.metric("CV Accuracy", f"{M.get('cv_accuracy', 0):.1%}")
+    col2.metric("Training Samples", M.get("samples", 0))
+    col3.metric("Last Trained", M.get("trained_at", "N/A"))
     st.markdown("---")
 
     st.markdown("#### 📁 Option 1 — Upload New Training Data")
     retrain_file = st.file_uploader("Upload CSV file (must have 'text' and 'priority' columns):",
-                                     type=["csv"], key="retrain_upload")
+                                    type=["csv"], key="retrain_upload")
     if retrain_file is not None:
         df_new = pd.read_csv(retrain_file)
         st.dataframe(df_new.head(), use_container_width=True)
         if "text" in df_new.columns and "priority" in df_new.columns:
             st.success(f"✅ Valid file! {len(df_new)} samples found.")
             merge_option = st.radio("How to use this data?",
-                                     ["➕ Merge with existing data", "🔄 Replace existing data"],
-                                     horizontal=True, key="merge_option")
+                                    ["➕ Merge with existing data", "🔄 Replace existing data"],
+                                    horizontal=True, key="merge_option")
             if st.button("🚀 Start Retraining", type="primary", use_container_width=True):
                 with st.spinner("🔄 Retraining model... please wait..."):
                     try:
@@ -671,13 +702,10 @@ with tab6:
                         else:
                             df_new.to_csv("data/complaints.csv", index=False)
                             st.info(f"📊 New dataset: {len(df_new)} samples")
-                        import io, sys
-                        old_stdout = sys.stdout
-                        sys.stdout = buffer = io.StringIO()
-                        train("data/complaints.csv")
-                        sys.stdout = old_stdout
+                        output = run_training_capture()
+                        M = load_metrics()
                         st.success("✅ Model retrained successfully!")
-                        st.code(buffer.getvalue())
+                        st.code(output)
                     except Exception as e:
                         st.error(f"❌ Retraining failed: {e}")
         else:
@@ -694,19 +722,16 @@ with tab6:
             if st.button("🚀 Retrain with Feedback Data", type="secondary", use_container_width=True):
                 with st.spinner("🔄 Retraining with feedback data..."):
                     try:
-                        feedback_train = correct_feedback[["text", "predicted"]].copy()
+                        feedback_train         = correct_feedback[["text", "predicted"]].copy()
                         feedback_train.columns = ["text", "priority"]
                         existing_df = pd.read_csv("data/complaints.csv")
                         combined_df = pd.concat([existing_df, feedback_train], ignore_index=True)
                         combined_df.drop_duplicates(subset=["text"], inplace=True)
                         combined_df.to_csv("data/complaints.csv", index=False)
-                        import io, sys
-                        old_stdout = sys.stdout
-                        sys.stdout = buffer = io.StringIO()
-                        train("data/complaints.csv")
-                        sys.stdout = old_stdout
+                        output = run_training_capture()
+                        M = load_metrics()
                         st.success("✅ Model retrained with feedback data!")
-                        st.code(buffer.getvalue())
+                        st.code(output)
                     except Exception as e:
                         st.error(f"❌ Failed: {e}")
         else:
@@ -719,8 +744,8 @@ with tab7:
     st.markdown("### 📝 Complaint Summarizer")
     st.markdown("Paste a long complaint and get a quick summary + classification!")
     long_complaint = st.text_area("Paste your complaint here:", height=200,
-                                   placeholder="Paste a long complaint text here...",
-                                   key="summarizer_input")
+                                  placeholder="Paste a long complaint text here...",
+                                  key="summarizer_input")
     if st.button("📝 Summarize & Classify", type="primary", use_container_width=True):
         if long_complaint.strip():
             with st.spinner("Analyzing complaint..."):

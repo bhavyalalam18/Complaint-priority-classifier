@@ -1,8 +1,10 @@
 import pandas as pd
 import numpy as np
 import joblib
+import json
 import os
 import re
+from datetime import datetime
 from sklearn.feature_extraction.text import TfidfVectorizer
 from sklearn.svm import LinearSVC
 from sklearn.calibration import CalibratedClassifierCV
@@ -121,22 +123,19 @@ def keyword_priority(text: str) -> tuple[str, float]:
 # Training
 # ---------------------------------------------------------------------------
 def train(csv_path: str, model_path: str = "models/model.joblib"):
-    # ✅ FIX 1: explicit header=0 so pandas never treats header as data
+    # Load and clean data
     df = pd.read_csv(csv_path, header=0)
     df.dropna(subset=["text", "priority"], inplace=True)
     df["priority"] = df["priority"].str.lower().str.strip()
-
-    # ✅ FIX 2: drop any row where priority is not a valid label
-    df = df[df["priority"].isin(["high", "medium", "low"])]
+    df = df[df["priority"].isin(["high", "medium", "low"])]   # drops stray header rows
+    df = df.drop_duplicates(subset=["text"])                   # drops duplicate complaints
 
     X, y = df["text"], df["priority"]
     print(f"\n📦 Dataset: {len(df)} samples | Classes: {dict(y.value_counts().sort_index())}")
 
     min_class_count = int(y.value_counts().min())
 
-    # ✅ FIX 3: calibration_cv must be safe within each outer fold
-    # Each fold's train split is (n_splits-1)/n_splits of data
-    # so effective min samples per class in a fold is min_class_count * (n_splits-1)/n_splits
+    # Keep calibration CV safe inside each outer fold
     n_splits = max(2, min(5, min_class_count))
     effective_min = int(min_class_count * (n_splits - 1) / n_splits)
     calibration_cv = max(2, min(5, effective_min))
@@ -146,31 +145,61 @@ def train(csv_path: str, model_path: str = "models/model.joblib"):
     print(f"   Using n_splits={n_splits} (smallest class has {min_class_count} samples)")
     print(f"   Calibration cv={calibration_cv} (effective min per fold={effective_min})")
 
+    # Cross-validation
     cv = StratifiedKFold(n_splits=n_splits, shuffle=True, random_state=42)
     cv_scores = cross_val_score(pipeline, X, y, cv=cv, scoring="accuracy")
     print(f"\n📈 Cross-validation accuracy : {cv_scores.mean():.2%} (±{cv_scores.std():.2%})")
     print(f"   Per-fold scores           : {[f'{s:.2%}' for s in cv_scores]}")
 
+    # Hold-out evaluation
     X_train, X_test, y_train, y_test = train_test_split(
         X, y, test_size=0.2, random_state=42, stratify=y
     )
     pipeline.fit(X_train, y_train)
     y_pred = pipeline.predict(X_test)
 
-    print(f"\n✅ Hold-out Accuracy: {accuracy_score(y_test, y_pred):.2%}")
+    holdout_acc = accuracy_score(y_test, y_pred)
+    report = classification_report(y_test, y_pred, output_dict=True, zero_division=0)
+
+    print(f"\n✅ Hold-out Accuracy: {holdout_acc:.2%}")
     print("\n📊 Classification Report:")
-    print(classification_report(y_test, y_pred))
+    print(classification_report(y_test, y_pred, zero_division=0))
 
     labels = ["high", "medium", "low"]
     cm = confusion_matrix(y_test, y_pred, labels=labels)
     print("🔢 Confusion Matrix (rows=actual, cols=predicted):")
     print(f"{'':10}  {'high':>6}  {'medium':>6}  {'low':>6}")
-    for lbl, row in zip(["high", "medium", "low"], cm):
+    for lbl, row in zip(labels, cm):
         print(f"  {lbl:<8}  {row[0]:>6}  {row[1]:>6}  {row[2]:>6}")
+
+    # Save metrics so the app can display real numbers
+    metrics = {
+        "model": "Calibrated LinearSVC",
+        "cv_accuracy": round(float(cv_scores.mean()), 4),
+        "holdout_accuracy": round(float(holdout_acc), 4),
+        "precision": round(report["weighted avg"]["precision"], 4),
+        "recall": round(report["weighted avg"]["recall"], 4),
+        "f1": round(report["weighted avg"]["f1-score"], 4),
+        "per_class": {
+            c: {
+                "precision": round(report[c]["precision"], 4),
+                "recall": round(report[c]["recall"], 4),
+                "f1": round(report[c]["f1-score"], 4),
+            }
+            for c in labels
+        },
+        "samples": int(len(df)),
+        "class_counts": {k: int(v) for k, v in y.value_counts().items()},
+        "trained_at": datetime.now().strftime("%Y-%m-%d %H:%M"),
+    }
+    model_dir = os.path.dirname(model_path) or "."
+    os.makedirs(model_dir, exist_ok=True)
+    with open(os.path.join(model_dir, "metrics.json"), "w") as f:
+        json.dump(metrics, f, indent=2)
+    print(f"📝 Metrics saved to {os.path.join(model_dir, 'metrics.json')}")
 
     # Refit on full data before saving
     pipeline.fit(X, y)
-    os.makedirs("models", exist_ok=True)
     joblib.dump(pipeline, model_path)
     print(f"\n💾 Model saved to {model_path}")
     return pipeline
